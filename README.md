@@ -32,8 +32,8 @@ sudo chmod ${USER}:${USER} *.json
 
 
 ```bash
-mkdir ./ldbc 
-cd ./ldbc
+mkdir ./LDBC 
+cd ./LDBC
 
 cat << EOF > ./params.ini
 
@@ -67,7 +67,7 @@ export NEO4J_HOME=${PWD}/neo4j-server
 export NEO4J_DB_DIR=$NEO4J_HOME/data/databases/graph.db
 export NEO4J_DATA_DIR=${PWD}/test-data/social_network
 export POSTFIX=_0_0.csv
-export JAVA_OPTIONS='-Xms64G -Xmx64G -XX:+UseG1GC'
+export JAVA_OPTIONS='-Xms32G -Xmx60G -XX:+UseG1GC'
 
 ./environment-variables-neo4j.sh && ./configure-neo4j.sh && ${NEO4J_HOME}/bin/neo4j start
 
@@ -121,6 +121,107 @@ graph.io(graphson()).writeGraph('/cypher/ldbc.scale10.json')
 
 
 ## DBPedia
+
+
+```bash
+
+cd DBpedia
+git clone https://github.com/ldbc/ldbc_snb_implementations.git
+# List of DBpedia files to download, the `sample` file is a smaller list for testing 
+cp dbpedia_files_sample.txt  ldbc_snb_implementations/cypher/
+
+cp dbpedia_files.txt  ldbc_snb_implementations/cypher/
+
+cp download-dbpedia.sh  ldbc_snb_implementations/cypher/
+cp import-dbpedia.sh ldbc_snb_implementations/cypher/
+
+
+cd ldbc_snb_implementations/cypher
+chmod -R 777 .
+docker run --rm -it -v ${PWD}:/cypher --entrypoint /bin/bash tinkerpop/gremlin-console
+
+cd /cypher
+sed -i s/NEO4J_VERSION=3.3.6/NEO4J_VERSION=3.2.3/ get-neo4j.sh
+./get-neo4j.sh
+
+
+export NEO4J_HOME=${PWD}/neo4j-server
+export NEO4J_DB_DIR=$NEO4J_HOME/data/databases/graph.db
+export NEO4J_DATA_DIR=${PWD}/test-data/social_network
+export JAVA_OPTIONS='-Xms32G -Xmx60G -XX:+UseG1GC'
+
+
+./download-dbpedia.sh dbpedia_files.tx
+
+
+./environment-variables-neo4j.sh && ./configure-neo4j.sh && ${NEO4J_HOME}/bin/neo4j start
+
+./load-scripts/delete-neo4j-database.sh
+./import-dbpedia.sh
+
+./restart-neo4j.sh
+
+${NEO4J_HOME}/bin/neo4j stop
+chmod -R 777 neo4j-server
+cd /opt/gremlin-console/
+
+sed -i -e 's/"\${JVM_OPTS\[@\]}"/\${JVM_OPTS[@]}/' bin/gremlin.sh 
+
+bin/gremlin.sh
+```
+
+```gremlin
+:install org.apache.tinkerpop neo4j-gremlin 3.4.6
+:q
+```
+
+```bash
+bin/gremlin.sh
+```
+
+```gremlin
+:plugin use tinkerpop.neo4j
+
+conf = new BaseConfiguration()
+conf.setProperty("gremlin.neo4j.directory","/cypher/neo4j-server/data/databases/graph.db")
+conf.setProperty("gremlin.neo4j.conf.dbms.allow_format_migration","true")
+
+graph = Neo4jGraph.open(conf)
+g=graph.traversal()
+
+size=50
+c = g.V().count().next()
+batch = (c/size + 1) as int
+
+for (i = 0; i <size; i++) {
+   System.out.println(i);
+   g.V().range(i*batch, (i+1)*batch).property('uid',id()).iterate();
+   g.tx().commit();
+}
+
+
+size=200
+c = g.V().count().next()
+batch = (c/size + 1) as int
+
+
+for (i = 0; i <size; i++) {
+   System.out.println(i);
+   g.V().range(i*batch, (i+1)*batch).subgraph('subGraph').cap('subGraph').next().io(graphson()).writeGraph('/cypher/dbpedia.+'i'+.json');
+}
+
+:q
+```
+
+```bash
+exit
+cat dbpedia-[0-9]* | gzip -c > dbpedia.json.gz
+rm  dbpedia-[0-9]*
+```
+
+
+
+
 
 
 

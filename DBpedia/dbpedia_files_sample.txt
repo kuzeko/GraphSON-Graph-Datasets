@@ -1,0 +1,4 @@
+https://downloads.dbpedia.org/repo/dbpedia/generic/categories/2020.03.01/categories_lang=en_labels.ttl.bz2
+https://downloads.dbpedia.org/repo/dbpedia/generic/categories/2020.03.01/categories_lang=en_skos.ttl.bz2
+https://downloads.dbpedia.org/repo/dbpedia/mappings/geo-coordinates-mappingbased/2020.02.01/geo-coordinates-mappingbased_lang=en.ttl.bz2
+https://downloads.dbpedia.org/repo/dbpedia/mappings/mappingbased-literals/2020.02.01/mappingbased-literals_lang=en.ttl.bz2
