@@ -207,7 +207,7 @@ batch = (c/size + 1) as int
 
 for (i = 0; i <size; i++) {
    System.out.println(i);
-   g.V().range(i*batch, (i+1)*batch).subgraph('subGraph').cap('subGraph').next().io(graphson()).writeGraph('/cypher/dbpedia.+'i'+.json');
+   g.V().range(i*batch, (i+1)*batch).bothE().subgraph('subGraph').cap('subGraph').next().io(graphson()).writeGraph('/cypher/dbpedia.+'i'+.json');
 }
 
 :q
@@ -215,8 +215,8 @@ for (i = 0; i <size; i++) {
 
 ```bash
 exit
-cat dbpedia-[0-9]* | gzip -c > dbpedia.json.gz
-rm  dbpedia-[0-9]*
+cat dbpedia.[0-9]* | gzip -c > dbpedia.json.gz
+rm  dbpedia.[0-9]*
 ```
 
 
