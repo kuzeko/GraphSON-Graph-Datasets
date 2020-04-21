@@ -107,14 +107,25 @@ conf.setProperty("gremlin.neo4j.conf.dbms.allow_format_migration","true")
 graph = Neo4jGraph.open(conf)
 g=graph.traversal()
 
+size=50
 c = g.V().count().next()
-batch = (c/50 + 1) as int
+batch = (c/size + 1) as int
 
-for (i = 0; i <c; i+=batch) {
+ids = g.V().id();[]
+a=[];
+i=0;
+for( idx in ids ){
+  a.add(idx);
+  i++;
+  if(a.size() > batch || !ids.hasNext()){
    System.out.println(i);
-   g.V().range(i, i+batch).property('uid',id()).iterate();
-   g.tx().commit();
-}
+   a = a as Set;[];
+   g.V(a).property('uid',id()).iterate();
+   a=[];
+  }
+} 
+
+
 
 graph.io(graphson()).writeGraph('/cypher/ldbc.scale10.json')
 ```
@@ -150,16 +161,30 @@ export NEO4J_DB_DIR=$NEO4J_HOME/data/databases/graph.db
 export NEO4J_DATA_DIR=${PWD}/test-data/social_network
 export JAVA_OPTIONS='-Xms32G -Xmx60G -XX:+UseG1GC'
 
-
-./download-dbpedia.sh dbpedia_files.tx
-
-
 ./environment-variables-neo4j.sh && ./configure-neo4j.sh && ${NEO4J_HOME}/bin/neo4j start
-
+sleep 10
 ./load-scripts/delete-neo4j-database.sh
+
+
+if [ ! -f ${NEO4J_HOME}/plugins/neosemantics-3.2.0.1-beta.jar ]
+then
+    echo "Downloading Neo4j RDF plugin..."
+    wget -P ${NEO4J_HOME}/plugins/ https://github.com/jbarrasa/neosemantics/releases/download/3.2.0.1/neosemantics-3.2.0.1-beta.jar
+fi
+echo "Installing Neo4j RDF plugin..."
+echo dbms.unmanaged_extension_classes=semantics.extension=/rdf >> ${NEO4J_HOME}/conf/neo4j.conf
+
+./load-scripts/./restart-neo4j.sh
+
+
+./download-dbpedia.sh dbpedia_files.txt
+
+#${NEO4J_HOME}/bin/neo4j start
+
+sleep 10
+
 ./import-dbpedia.sh
 
-./restart-neo4j.sh
 
 ${NEO4J_HOME}/bin/neo4j stop
 chmod -R 777 neo4j-server
@@ -182,33 +207,58 @@ bin/gremlin.sh
 ```gremlin
 :plugin use tinkerpop.neo4j
 
-conf = new BaseConfiguration()
-conf.setProperty("gremlin.neo4j.directory","/cypher/neo4j-server/data/databases/graph.db")
-conf.setProperty("gremlin.neo4j.conf.dbms.allow_format_migration","true")
+conf = new BaseConfiguration();
+conf.setProperty("gremlin.neo4j.directory","/cypher/neo4j-server/data/databases/graph.db");
+conf.setProperty("gremlin.neo4j.conf.dbms.allow_format_migration","true");
 
-graph = Neo4jGraph.open(conf)
+graph = Neo4jGraph.open(conf);
 g=graph.traversal()
 
 size=50
 c = g.V().count().next()
 batch = (c/size + 1) as int
 
-for (i = 0; i <size; i++) {
+ids = g.V().id();[]
+a=[];
+i=0;
+for( idx in ids ){
+  a.add(idx);
+  i++;
+  if(a.size() > batch || !ids.hasNext()){
    System.out.println(i);
-   g.V().range(i*batch, (i+1)*batch).property('uid',id()).iterate();
-   g.tx().commit();
-}
+   a = a as Set;[];
+   g.V(a).property('uid',id()).iterate();
+   a=[];
+  }
+} 
 
 
-size=200
-c = g.V().count().next()
-batch = (c/size + 1) as int
 
 
-for (i = 0; i <size; i++) {
+writer = GraphSONWriter.build().create();
+size=200;
+c = g.V().count().next();
+batch = (c/size + 1) as int;
+
+ids = g.V().id();[]
+a=[];
+i=0;
+for( idx in ids ){
+  a.add(idx);
+  if(a.size() > batch || !ids.hasNext()){
+   i++;
    System.out.println(i);
-   g.V().range(i*batch, (i+1)*batch).bothE().subgraph('subGraph').cap('subGraph').next().io(graphson()).writeGraph('/cypher/dbpedia.+'i'+.json');
-}
+   final OutputStream os = new FileOutputStream('/cypher/dbpedia.'+i+'.json');
+   a = a as Set;[];
+   writer.writeVertices(os, g.V(a), Direction.BOTH);[];
+   os.close();
+   a=[];
+  }
+} 
+
+
+
+
 
 :q
 ```
