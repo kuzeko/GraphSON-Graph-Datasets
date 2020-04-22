@@ -234,28 +234,27 @@ for( idx in ids ){
 
 
 
-
-writer = GraphSONWriter.build().create();
-size=200;
+size=100;
 c = g.V().count().next();
-batch = (c/size + 1) as int;
-
-ids = g.V().id();[]
-a=[];
-i=0;
-for( idx in ids ){
-  a.add(idx);
-  if(a.size() > batch || !ids.hasNext()){
-   i++;
-   System.out.println(i);
-   final OutputStream os = new FileOutputStream('/cypher/dbpedia.'+i+'.json');
-   a = a as Set;[];
-   writer.writeVertices(os, g.V(a), Direction.BOTH);[];
-   os.close();
-   a=[];
+batchSize = (c/size + 1) as int;
+vertices = g.V();[]
+counter = 0;
+currentBatch = 1;
+writer = GraphSONWriter.build().mapper(GraphSONMapper.build().version(GraphSONVersion.V3_0).create()).create();
+os = null;
+while (vertices.hasNext()) {
+  def v = vertices.next()
+  def newBatch = counter % batchSize == 0 ;
+  if (newBatch) {
+    if (null != os) os.close();
+    os = new FileOutputStream("/cypher/dbpedia.${currentBatch}.json")
+    currentBatch++
   }
-} 
-
+  writer.writeVertex(os, v, OUT)
+  os.write("\n".getBytes())
+  counter++  
+}
+os.close()
 
 
 
