@@ -12,19 +12,34 @@ docker run --rm -it -v ${PWD}:/datasets tinkerpop/gremlin-console
 
 ```gremlin
 
-conf = new BaseConfiguration()
-conf.setProperty("gremlin.tinkergraph.vertexIdManager","LONG")
-conf.setProperty("gremlin.tinkergraph.edgeIdManager","LONG")
+conf = new BaseConfiguration();
+conf.setProperty("gremlin.tinkergraph.vertexIdManager","LONG");
+conf.setProperty("gremlin.tinkergraph.edgeIdManager","LONG");
 conf.setProperty("gremlin.tinkergraph.vertexPropertyIdManager","LONG");[]
-graph = TinkerGraph.open(conf)
-graph.io(graphml()).readGraph('/datasets/air-routes-latest.graphml')
-g=graph.traversal()
+graph = TinkerGraph.open(conf);
+graph.io(graphml()).readGraph('/datasets/air-routes-latest.graphml');
+g=graph.traversal();
+
+
 g.V().property('uid',id()).iterate();[]
-graph.io(graphson()).writeGraph('/datasets/air-routes-latest.json')
+
+writer = GraphSONWriter.build().mapper(GraphSONMapper.build().version(GraphSONVersion.V3_0).create()).create();
+os = new FileOutputStream("/datasets/air-routes-latest.json");
+vertices = g.V();[]
+while (vertices.hasNext()) {
+  def v = vertices.next();
+  writer.writeVertex(os, v, OUT);
+  os.write("\n".getBytes());
+}
+os.close();
+
+
+:q
 ```
 
 ```bash
-sudo chmod ${USER}:${USER} *.json
+sudo chown ${USER}:${USER} *.json
+mv air-routes-latest.json ../../
 ```
 
 
@@ -140,7 +155,6 @@ cd DBpedia
 git clone https://github.com/ldbc/ldbc_snb_implementations.git
 # List of DBpedia files to download, the `sample` file is a smaller list for testing 
 cp dbpedia_files_sample.txt  ldbc_snb_implementations/cypher/
-
 cp dbpedia_files.txt  ldbc_snb_implementations/cypher/
 
 cp download-dbpedia.sh  ldbc_snb_implementations/cypher/
@@ -152,7 +166,8 @@ chmod -R 777 .
 docker run --rm -it -v ${PWD}:/cypher --entrypoint /bin/bash tinkerpop/gremlin-console
 
 cd /cypher
-sed -i s/NEO4J_VERSION=3.3.6/NEO4J_VERSION=3.2.3/ get-neo4j.sh
+# sed -i s/NEO4J_VERSION=.+\..+\..+/NEO4J_VERSION=3.2.3/ get-neo4j.sh
+sed -i -e s/NEO4J_VERSION=[0-9].[0-9].[0-9]/NEO4J_VERSION=3.2.3/ get-neo4j.sh
 ./get-neo4j.sh
 
 
@@ -163,7 +178,7 @@ export JAVA_OPTIONS='-Xms32G -Xmx60G -XX:+UseG1GC'
 
 ./environment-variables-neo4j.sh && ./configure-neo4j.sh && ${NEO4J_HOME}/bin/neo4j start
 sleep 10
-./load-scripts/delete-neo4j-database.sh
+./scripts/delete-neo4j-database.sh
 
 
 if [ ! -f ${NEO4J_HOME}/plugins/neosemantics-3.2.0.1-beta.jar ]
@@ -174,7 +189,7 @@ fi
 echo "Installing Neo4j RDF plugin..."
 echo dbms.unmanaged_extension_classes=semantics.extension=/rdf >> ${NEO4J_HOME}/conf/neo4j.conf
 
-./load-scripts/./restart-neo4j.sh
+./scripts/restart-neo4j.sh
 
 
 ./download-dbpedia.sh dbpedia_files.txt
@@ -212,7 +227,7 @@ conf.setProperty("gremlin.neo4j.directory","/cypher/neo4j-server/data/databases/
 conf.setProperty("gremlin.neo4j.conf.dbms.allow_format_migration","true");
 
 graph = Neo4jGraph.open(conf);
-g=graph.traversal()
+g=graph.traversal();
 
 size=50
 c = g.V().count().next()
@@ -270,6 +285,21 @@ rm  dbpedia.[0-9]*
 
 
 
+## Uniprot
+
+
+```
+mkdir -p data
+for fdata in `cat uniprot_files.txt`
+do
+wget 'ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/rdf/'${fdata}
+xz --decompress ${fdata}
+fname="${fdata%.*}"
+real_name="${fname%.*}"
+docker run -it --rm -v `pwd`:/rdf stain/jena riot -out N-Triples "/rdf/${fname}" > "./data/${real_name}.ttl"
+rm -v $fname
+done
+```
 
 
 
