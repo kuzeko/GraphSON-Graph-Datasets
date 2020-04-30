@@ -50,48 +50,42 @@ mv air-routes-latest.json ../../
 mkdir ./LDBC 
 cd ./LDBC
 
-cat << EOF > ./params.ini
+# in `params.ini` change scale factor accordingly
+# scale factors: small 10, large 30, xlarge 100
+# ldbc.snb.datagen.generator.scaleFactor:snb.interactive.10
 
-ldbc.snb.datagen.generator.scaleFactor:snb.interactive.10
-ldbc.snb.datagen.serializer.dynamicActivitySerializer:ldbc.snb.datagen.serializer.snb.csv.dynamicserializer.activity.CsvCompositeDynamicActivitySerializer
-ldbc.snb.datagen.serializer.dynamicPersonSerializer:ldbc.snb.datagen.serializer.snb.csv.dynamicserializer.person.CsvCompositeDynamicPersonSerializer
-ldbc.snb.datagen.serializer.staticSerializer:ldbc.snb.datagen.serializer.snb.csv.staticserializer.CsvCompositeStaticSerializer
+git clone --single-branch --branch master https://github.com/ldbc/ldbc_snb_datagen.git
+cd ldbc_snb_datagen
+git reset  e6213b52ea6ce7222f7882d4d8eb856ad873adb3 --hard
+cp ../params.ini.large  ./params.ini
+docker build . --tag ldbc/datagen
+docker run --rm -v $(pwd):/opt/ldbc_snb_datagen/out -v $(pwd)/params.ini:/opt/ldbc_snb_datagen/params.ini ldbc/datagen
+sudo chown -R $USER:$USER social_network/ substitution_parameters/
 
-EOF
+cd ..
+git clone --single-branch --branch master https://github.com/ldbc/ldbc_snb_implementations.git
+cd ldbc_snb_implementations
+git reset b64ab7de0f08fe28b71fce59507e86b75462ad0e --hard
 
-docker run --rm -it -v ${PWD}:/datasets tinkerpop/gremlin-console
-
-sudo chown -R $USER:$USER  social_network substitution_parameters/
-
-
-
-git clone https://github.com/ldbc/ldbc_snb_implementations.git
-
-mv social_network/ substitution_parameters/ ldbc_snb_implementations/cypher/test-data/
-
-cd ldbc_snb_implementations/cypher
+mv ../ldbc_snb_datagen/social_network/ ../ldbc_snb_datagen/substitution_parameters/ ./cypher/test-data/
 chmod -R 777 .
-docker run --rm -it -v ${PWD}:/cypher --entrypoint /bin/bash tinkerpop/gremlin-console
+docker run --memory 51gb --rm -it -v ${PWD}:/datasets --entrypoint /bin/bash tinkerpop/gremlin-console 
 
-cd /cypher
-sed -i s/NEO4J_VERSION=3.3.6/NEO4J_VERSION=3.2.3/ get-neo4j.sh
+cd /datasets/cypher
+sed -i -e s/NEO4J_VERSION=[0-9].[0-9].[0-9]/NEO4J_VERSION=3.2.3/ get-neo4j.sh
 ./get-neo4j.sh
 
+export JAVA_OPTIONS='-Xms12G -Xmx40G -XX:+UseG1GC'
 
 export NEO4J_HOME=${PWD}/neo4j-server
 export NEO4J_DB_DIR=$NEO4J_HOME/data/databases/graph.db
-export NEO4J_DATA_DIR=${PWD}/test-data/social_network
+export NEO4J_DATA_DIR=/datasets/cypher/test-data/social_network/
 export POSTFIX=_0_0.csv
-export JAVA_OPTIONS='-Xms32G -Xmx60G -XX:+UseG1GC'
 
 ./environment-variables-neo4j.sh && ./configure-neo4j.sh && ${NEO4J_HOME}/bin/neo4j start
 
-cd load-scripts/
-./convert-csvs.sh
-./delete-neo4j-database.sh
-./import-to-neo4j.sh
-./restart-neo4j.sh
-
+cd load-scripts
+./load-in-one-step.sh
 
 cd ..
 neo4j-server/bin/neo4j stop
@@ -115,16 +109,16 @@ bin/gremlin.sh
 ```gremlin
 :plugin use tinkerpop.neo4j
 
-conf = new BaseConfiguration()
-conf.setProperty("gremlin.neo4j.directory","/cypher/neo4j-server/data/databases/graph.db")
-conf.setProperty("gremlin.neo4j.conf.dbms.allow_format_migration","true")
+conf = new BaseConfiguration();
+conf.setProperty("gremlin.neo4j.directory","/datasets/cypher/neo4j-server/data/databases/graph.db");
+conf.setProperty("gremlin.neo4j.conf.dbms.allow_format_migration","true");
 
-graph = Neo4jGraph.open(conf)
-g=graph.traversal()
+graph = Neo4jGraph.open(conf);
+g=graph.traversal();
 
-size=50
+nBatches=500
 c = g.V().count().next()
-batch = (c/size + 1) as int
+batch = (c/nBatches + 1) as int
 
 ids = g.V().id();[]
 a=[];
@@ -136,13 +130,46 @@ for( idx in ids ){
    System.out.println(i);
    a = a as Set;[];
    g.V(a).property('uid',id()).iterate();
+   g.tx().commit();
    a=[];
   }
 } 
 
 
 
-graph.io(graphson()).writeGraph('/cypher/ldbc.scale10.json')
+size=200;
+c = g.V().count().next();
+batchSize = (c/size + 1) as int;
+vertices = g.V();[]
+counter = 0;
+currentBatch = 1;
+writer = GraphSONWriter.build().mapper(GraphSONMapper.build().version(GraphSONVersion.V3_0).create()).create();
+os = null;
+while (vertices.hasNext()) {
+  def v = vertices.next()
+  def newBatch = counter % batchSize == 0 ;
+  if (newBatch) {
+    System.out.println(counter);
+    if (null != os) os.close();
+    os = new FileOutputStream("/datasets/cypher/ldbc.scale30.${currentBatch}.json")
+    currentBatch++
+  }
+  writer.writeVertex(os, v, OUT)
+  os.write("\n".getBytes())
+  counter++  
+}
+os.close()
+
+
+:q
+```
+
+```
+exit
+
+cat cypher/ldbc.scale*[0-9]* | gzip -c > ./ldbc.scale10.json.gz
+rm  cypher/ldbc.scale*[0-9]*.json
+mv ./ldbc.scale10.json.gz ../../
 ```
 
 
@@ -249,7 +276,7 @@ for( idx in ids ){
 
 
 
-size=100;
+size=50;
 c = g.V().count().next();
 batchSize = (c/size + 1) as int;
 vertices = g.V();[]
@@ -280,7 +307,8 @@ os.close()
 ```bash
 exit
 cat dbpedia.[0-9]* | gzip -c > dbpedia.json.gz
-rm  dbpedia.[0-9]*
+rm  dbpedia.[0-9]*.json
+mv dbpedia.json.gz ../../../
 ```
 
 
@@ -312,3 +340,4 @@ done
 
 
 
+v

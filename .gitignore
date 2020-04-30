@@ -1,6 +1,7 @@
-DBpedia/ldbc_snb_implementations
-LDBC/ldbc_snb_implementations/
+**/ldbc_snb_implementations
+**/ldbc_snb_datagen
 
 practical-gremlin/
 
 *.tar.gz
+*.json*
