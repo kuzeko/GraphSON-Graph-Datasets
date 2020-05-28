@@ -135,15 +135,21 @@ for( idx in ids ){
   }
 } 
 
+for( pv in  [ 'speaks', 'email', 'language', 'content', 'imageFile' ] ){ 
+   System.out.println(pv);
+   g.V().has(pv).property(pv, properties(pv).limit(1).value().unfold()).iterate();
+}
 
+// --------- change file name for scale you are using velow ---v
 
-size=200;
+numBatches=200;
+baseName='/datasets/cypher/ldbc.scale10'
 c = g.V().count().next();
-batchSize = (c/size + 1) as int;
+batchSize = (c/numBatches + 1) as int;
 vertices = g.V();[]
 counter = 0;
 currentBatch = 1;
-writer = GraphSONWriter.build().mapper(GraphSONMapper.build().version(GraphSONVersion.V3_0).create()).create();
+writer = GraphSONWriter.build().mapper(GraphSONMapper.build().version(GraphSONVersion.V3_0).typeInfo(TypeInfo.PARTIAL_TYPES).create()).create();
 os = null;
 while (vertices.hasNext()) {
   def v = vertices.next()
@@ -151,7 +157,7 @@ while (vertices.hasNext()) {
   if (newBatch) {
     System.out.println(counter);
     if (null != os) os.close();
-    os = new FileOutputStream("/datasets/cypher/ldbc.scale30.${currentBatch}.json")
+    os = new FileOutputStream("${baseName}.${currentBatch}.json")
     currentBatch++
   }
   writer.writeVertex(os, v, OUT)
@@ -169,11 +175,11 @@ exit
 
 cat cypher/ldbc.scale*[0-9]* | gzip -c > ./ldbc.scale10.json.gz
 rm  cypher/ldbc.scale*[0-9]*.json
-mv ./ldbc.scale10.json.gz ../../
+mv ./ldbc.scale*.json.gz ../../
 ```
 
 
-## DBPedia
+## DBPedia 2020
 
 
 ```bash
@@ -312,6 +318,26 @@ mv dbpedia.json.gz ../../../
 ```
 
 
+## Yago4
+
+
+git clone https://github.com/ldbc/ldbc_snb_implementations.git
+# List of DBpedia files to download, the `sample` file is a smaller list for testing 
+cp download-yago.sh  yago_files.txt ldbc_snb_implementations/cypher/
+cp import-yago.sh ldbc_snb_implementations/cypher/
+
+
+cd ldbc_snb_implementations/cypher
+chmod -R 777 .
+docker run --rm -it -v ${PWD}:/cypher --entrypoint /bin/bash tinkerpop/gremlin-console
+
+cd /cypher
+# sed -i s/NEO4J_VERSION=.+\..+\..+/NEO4J_VERSION=3.2.3/ get-neo4j.sh
+sed -i -e s/NEO4J_VERSION=[0-9].[0-9].[0-9]/NEO4J_VERSION=3.2.3/ get-neo4j.sh
+./get-neo4j.sh
+
+[TBD]
+
 
 ## Uniprot
 
@@ -330,14 +356,7 @@ done
 ```
 
 
+[TBD]
 
 
 
-
-
-
-
-
-
-
-v

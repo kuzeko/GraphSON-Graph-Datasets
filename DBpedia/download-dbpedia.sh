@@ -20,8 +20,11 @@ then
         [[ "$line" =~ ^#.*$ ]] && continue
         wget -P ${DATA_DIR}/ $line
         bzip2 -dk ${DATA_DIR}/${line##*/}
+        filename=$(basename -- "${DATA_DIR}/${line##*/}")
+        filename="${filename%.*}"
+        iconv -f utf-8 -t ascii//TRANSLIT -c "${DATA_DIR}/${filename}" |  grep -v 'xn--b1aew'  > ${NEO4J_IMPORT}/${filename}
+        rm -v "${DATA_DIR}/${filename}"
     done < $1
-    mv ${DATA_DIR}/*.ttl ${NEO4J_IMPORT}/
 
     chmod -R 777 ${NEO4J_IMPORT}
 else
