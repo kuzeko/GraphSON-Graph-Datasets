@@ -131,14 +131,17 @@ for( idx in ids ){
    a = a as Set;[];
    g.V(a).property('uid',id()).iterate();
    g.tx().commit();
+   g.V(a).as('x').properties().as('p').select('x').property(select('p').key(), select('p').value().unfold()).iterate();[];
+   g.tx().commit();
+
    a=[];
   }
 } 
 
-for( pv in  [ 'speaks', 'email', 'language', 'content', 'imageFile' ] ){ 
-   System.out.println(pv);
-   g.V().has(pv).property(pv, properties(pv).limit(1).value().unfold()).iterate();
-}
+//for( pv in  [ 'speaks', 'email', 'language', 'content', 'imageFile' ] ){ 
+//   System.out.println(pv);
+//   g.V().has(pv).property(pv, properties(pv).limit(1).value().unfold()).iterate();
+//}
 
 // --------- change file name for scale you are using velow ---v
 
@@ -262,6 +265,14 @@ conf.setProperty("gremlin.neo4j.conf.dbms.allow_format_migration","true");
 graph = Neo4jGraph.open(conf);
 g=graph.traversal();
 
+
+//propNames = g.V().properties().key().dedup().iterate();
+
+//for( pv in  propNames ){
+//   System.out.println(pv);
+//   g.V().has(pv).property(pv, properties(pv).limit(1).value().unfold()).iterate();
+//}
+
 size=50
 c = g.V().count().next()
 batch = (c/size + 1) as int
@@ -276,6 +287,9 @@ for( idx in ids ){
    System.out.println(i);
    a = a as Set;[];
    g.V(a).property('uid',id()).iterate();
+   g.tx().commit();
+   g.V(a).as('x').properties().as('p').select('x').property(select('p').key(), select('p').value().unfold()).iterate();[];
+   g.tx().commit();
    a=[];
   }
 } 
@@ -294,6 +308,7 @@ while (vertices.hasNext()) {
   def v = vertices.next()
   def newBatch = counter % batchSize == 0 ;
   if (newBatch) {
+    System.out.println(currentBatch);
     if (null != os) os.close();
     os = new FileOutputStream("/cypher/dbpedia.${currentBatch}.json")
     currentBatch++
