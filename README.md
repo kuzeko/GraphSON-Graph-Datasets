@@ -21,17 +21,29 @@ graph.io(graphml()).readGraph('/datasets/air-routes-latest.graphml');
 g=graph.traversal();
 
 
-g.V().property('uid',id()).iterate();[]
+vertices = g.V();[]
+myid = 1
+while (vertices.hasNext()) {
+  g.V(vertices.next()).property('uid', myid++).iterate();
+}
+
 
 writer = GraphSONWriter.build().mapper(GraphSONMapper.build().version(GraphSONVersion.V3_0).create()).create();
 os = new FileOutputStream("/datasets/air-routes-latest.json");
 vertices = g.V();[]
 while (vertices.hasNext()) {
   def v = vertices.next();
-  writer.writeVertex(os, v, OUT);
+  writer.writeVertex(os, v, IN);
   os.write("\n".getBytes());
 }
 os.close();
+
+
+// Test if all went well
+
+g3 = TinkerGraph.open();
+GraphSONReader.build().mapper(GraphSONMapper.build().version(GraphSONVersion.V3_0).create()).create().readGraph(new FileInputStream(new File('/datasets/air-routes-latest.json')), g3);
+g3t = g3.traversal();
 
 
 :q
@@ -120,6 +132,20 @@ nBatches=500
 c = g.V().count().next()
 batch = (c/nBatches + 1) as int
 
+vertices = g.V();[]
+myid = 1;
+while (vertices.hasNext()) {
+  if(myid%batch == 0){
+    System.out.println(myid);
+    g.tx().commit();
+  }
+  g.V(vertices.next()).as('x').properties().as('p').select('x').property(select('p').key(), select('p').value().unfold()).select('x').property('uid', myid++).iterate();[]
+
+}
+
+g.tx().commit();
+
+
 ids = g.V().id();[]
 a=[];
 i=0;
@@ -163,7 +189,7 @@ while (vertices.hasNext()) {
     os = new FileOutputStream("${baseName}.${currentBatch}.json")
     currentBatch++
   }
-  writer.writeVertex(os, v, OUT)
+  writer.writeVertex(os, v, IN)
   os.write("\n".getBytes())
   counter++  
 }
@@ -277,22 +303,17 @@ size=50
 c = g.V().count().next()
 batch = (c/size + 1) as int
 
-ids = g.V().id();[]
-a=[];
-i=0;
-for( idx in ids ){
-  a.add(idx);
-  i++;
-  if(a.size() > batch || !ids.hasNext()){
-   System.out.println(i);
-   a = a as Set;[];
-   g.V(a).property('uid',id()).iterate();
-   g.tx().commit();
-   g.V(a).as('x').properties().as('p').select('x').property(select('p').key(), select('p').value().unfold()).iterate();[];
-   g.tx().commit();
-   a=[];
+vertices = g.V();[]
+myid = 1;
+while (vertices.hasNext()) {
+  if(myid%batch == 0){
+    System.out.println(myid);
+    g.tx().commit();
   }
-} 
+  g.V(vertices.next()).as('x').properties().as('p').select('x').property(select('p').key(), select('p').value().unfold()).select('x').property('uid', myid++).iterate();[]
+}
+
+
 
 
 
